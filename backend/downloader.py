@@ -57,12 +57,68 @@ _BILIBILI_COOKIE_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
 _LOGIN_REQUIRED_PLATFORMS = ("bilibili", "douyin")
 
 
+def _write_cookie_from_env() -> Optional[str]:
+    """从环境变量 BILI_COOKIE 读取 Cookie 文本并落盘为临时 cookies.txt。
+
+    服务器（Docker / 云服务器）上没有浏览器，无法运行 export_cookies.py，
+    因此线上统一通过环境变量注入登录态：
+        BILI_COOKIE  —— Netscape 格式的完整 Cookie 文本，或
+                        形如 "SESSDATA=xxx; bili_jct=yyy; DedeUserID=zzz" 的串
+        BILI_COOKIE_FILE —— 可选，直接指定已存在的 cookies.txt 路径
+
+    返回可用的 cookie 文件路径；未配置或写入失败时返回 None。
+    yt-dlp 的 cookiefile 只接受文件路径，所以这里必须落盘。
+    """
+    # 优先：显式指定已有文件
+    explicit = os.getenv("BILI_COOKIE_FILE", "").strip()
+    if explicit and os.path.exists(explicit):
+        return explicit
+
+    raw = os.getenv("BILI_COOKIE", "").strip()
+    if not raw:
+        return None
+
+    # 已经是 Netscape 格式（含制表符分隔行）则直接使用
+    if "\t" in raw and ("# Netscape" in raw or raw.lstrip().startswith("#")):
+        content = raw
+    else:
+        # 浏览器 DevTools 复制出来的 "k=v; k2=v2" 形式 → 转 Netscape
+        lines = ["# Netscape HTTP Cookie File", "# generated from BILI_COOKIE env", ""]
+        for pair in raw.replace("\n", ";").split(";"):
+            pair = pair.strip()
+            if not pair or "=" not in pair:
+                continue
+            name, _, value = pair.partition("=")
+            name, value = name.strip(), value.strip()
+            if not name:
+                continue
+            lines.append(
+                f".bilibili.com\tTRUE\t/\tTRUE\t0\t{name}\t{value}"
+            )
+        content = "\n".join(lines) + "\n"
+
+    try:
+        import tempfile
+
+        path = os.path.join(tempfile.gettempdir(), "saveany_bili_cookies.txt")
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(content)
+        return path
+    except Exception:
+        return None
+
+
 def _resolve_cookiefile(url: str) -> Optional[str]:
     """查找适用于该 URL 的 Cookie 文件。
 
-    B 站等平台对未登录用户的请求会返回 412 或 "No video formats found"，
-    若项目目录下存在 cookies.txt 则自动使用。
+    B 站等平台对未登录用户的请求会返回 412 或 "No video formats found"。
+    优先级：
+        1. 环境变量 BILI_COOKIE / BILI_COOKIE_FILE（服务器部署用）
+        2. 项目目录下的 cookies.txt（本地开发用）
     """
+    env_cookie = _write_cookie_from_env()
+    if env_cookie:
+        return env_cookie
     if os.path.exists(_BILIBILI_COOKIE_FILE):
         return _BILIBILI_COOKIE_FILE
     return None

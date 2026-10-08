@@ -1,0 +1,25 @@
+# 构建上下文忽略（放在 backend/ 下）
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 敏感与本地文件
+.env
+.env.local
+cookies.txt
+*.part
+
+# 运行时数据
+downloads/
+data/
+logs/
+*.log
+
+# 其他
+.git/
+.gitignore
+.idea/
+.vscode/
+test_*.py

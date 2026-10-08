@@ -1,0 +1,44 @@
+# ============================================================
+# systemd 服务单元（裸机部署，不用 Docker 时使用）
+# 安装：
+#   sudo cp deploy/saveany-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now saveany-backend
+# 查看日志：
+#   sudo journalctl -u saveany-backend -f
+# ============================================================
+
+[Unit]
+Description=SaveAny Backend (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 改成你的实际路径与用户
+WorkingDirectory=/opt/saveany/backend
+User=www-data
+Group=www-data
+
+# 从 .env 读取环境变量（含 BILI_COOKIE / DEEPSEEK_API_KEY）
+EnvironmentFile=/opt/saveany/.env.deploy
+
+# 用虚拟环境的 python
+ExecStart=/opt/saveany/venv/bin/python main.py
+
+Restart=always
+RestartSec=5
+
+# 日志交给 journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=saveany
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/saveany/backend/downloads /opt/saveany/backend/data /opt/saveany/backend/logs
+
+[Install]
+WantedBy=multi-user.target
