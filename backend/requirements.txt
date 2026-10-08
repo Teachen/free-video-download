@@ -6,6 +6,8 @@ uvicorn>=0.34.0
 yt-dlp[default,curl-cffi]>=2026.8.19
 curl-cffi>=0.16.0
 browser_cookie3>=0.20.0
+# 解密浏览器 Cookie（export_cookies_direct.py 用，配合 DPAPI）
+pycryptodome>=3.20.0
 
 # ffmpeg 用于音视频合并（高清视频下载必需），自动下载静态二进制
 static-ffmpeg>=3.0
