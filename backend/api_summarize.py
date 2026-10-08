@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 from collections.abc import AsyncIterable
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,14 +26,29 @@ class ChatRequest(BaseModel):
     subtitle_text: str = ""
 
 
+def _payment_disabled() -> bool:
+    """是否关闭支付/会员校验（本地测试与未配置支付时使用）。
+
+    设置 PAYMENT_DISABLED=true 后：
+      - 不再强制登录
+      - 不再限制每日次数
+      - AI 总结 / 问答 直接可用
+    """
+    return os.getenv("PAYMENT_DISABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _check_summary_permission(user: dict | None):
     """
     检查 AI 总结权限。
+    PAYMENT_DISABLED=true 时直接放行（不校验登录与次数）。
     未登录用户：不允许使用。
     免费用户：每日限制次数。
     VIP 用户：无限制。
     返回 (allowed, remaining, message)
     """
+    if _payment_disabled():
+        return True, -1, None
+
     if not user:
         return False, 0, "请先登录后使用 AI 总结功能"
 

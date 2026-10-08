@@ -46,7 +46,7 @@
       <FeatureSection />
       <HowToSection />
       <ComparisonSection />
-      <PricingSection :user="currentUser" @open-vip="handleOpenVip" @need-login="showAuthModal('login')" />
+<!--      <PricingSection :user="currentUser" @open-vip="handleOpenVip" @need-login="showAuthModal('login')" />-->
       <PlatformSection />
     </main>
     <AppFooter />
@@ -153,13 +153,18 @@ async function restoreUser() {
 
 // ===== VIP 购买 =====
 async function handleOpenVip() {
-  if (!isLoggedIn()) {
-    showAuthModal('login')
-    return
-  }
   try {
-    const { checkout_url } = await createCheckoutSession('monthly')
-    window.location.href = checkout_url
+    const data = await createCheckoutSession('monthly')
+    // 后端已关闭支付：会员功能直接开放，无需跳转
+    if (data?.payment_disabled) {
+      alert(data.message || '支付功能已关闭，会员功能已直接开放。')
+      return
+    }
+    if (!data?.checkout_url) {
+      alert('创建支付失败：未获取到支付链接')
+      return
+    }
+    window.location.href = data.checkout_url
   } catch (err) {
     const msg = err.response?.data?.detail || err.message || '创建支付失败'
     alert(typeof msg === 'string' ? msg : JSON.stringify(msg))

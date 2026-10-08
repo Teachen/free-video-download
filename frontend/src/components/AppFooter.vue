@@ -28,10 +28,19 @@
         <p class="text-xs text-text-muted text-center leading-relaxed">
           本工具仅供学习交流使用，请尊重视频版权，勿用于商业用途。下载内容的版权归原作者所有。
         </p>
+        
         <p class="text-xs text-text-muted">
           &copy; {{ new Date().getFullYear() }} SaveAny
         </p>
       </div>
+
+      <div class="text-xs text-text-muted text-center leading-relaxed">
+        <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">
+          闽ICP备2022001906号
+        </a>
+      </div>
     </div>
   </footer>
 </template>
+<script setup lang="ts">
+</script>

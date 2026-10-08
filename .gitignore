@@ -33,6 +33,10 @@ backend/logs/
 .env
 .env.local
 
+# Cookie 凭证（含账号登录态，严禁提交）
+cookies.txt
+backend/cookies.txt
+
 # 本地数据库（SQLite）
 backend/data/
 
@@ -41,3 +45,9 @@ backend/test_*.py
 
 # 截图等非代码文件
 *.png
+
+# 本地工作记忆（含会话笔记，不提交）
+.workbuddy/
+
+# 前端构建产物压缩包
+frontend/dist.zip

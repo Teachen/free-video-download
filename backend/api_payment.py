@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from auth import get_current_user
+from auth import get_current_user, get_optional_user
 from database import (
     create_order,
     update_order_stripe_session,
@@ -22,6 +22,23 @@ router = APIRouter(prefix="/api/payment", tags=["payment"])
 def _get_config(key: str, default: str = "") -> str:
     """每次调用时实时读取环境变量，确保 load_dotenv 后的值能被读到"""
     return os.getenv(key, default)
+
+
+def _payment_disabled() -> bool:
+    """是否关闭支付功能（本地测试 / 暂未接入支付时使用）"""
+    return os.getenv("PAYMENT_DISABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+# 占位符值：说明用户还没填真实 Stripe 配置
+_PLACEHOLDER_KEYS = {
+    "sk_test_your_stripe_secret_key",
+    "whsec_your_webhook_signing_secret",
+    "price_your_monthly_price_id",
+}
+
+
+def _is_placeholder(value: str) -> bool:
+    return (not value) or (value in _PLACEHOLDER_KEYS)
 
 
 PLANS = {
@@ -44,15 +61,36 @@ def _generate_order_no(user_id: int) -> str:
 
 
 @router.post("/create-checkout")
-async def create_checkout_session(req: CreateCheckoutRequest, user: dict = Depends(get_current_user)):
+async def create_checkout_session(req: CreateCheckoutRequest, user: dict | None = Depends(get_optional_user)):
+    # 支付已关闭（本地测试 / 演示环境）：不校验登录，直接返回提示
+    if _payment_disabled():
+        return {
+            "success": True,
+            "data": {
+                "payment_disabled": True,
+                "message": "支付功能已关闭（PAYMENT_DISABLED=true），AI 总结等会员功能已直接开放，无需支付。",
+            },
+        }
+
+    # 未关闭支付时，仍要求登录
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录")
+
     secret_key = _get_config("STRIPE_SECRET_KEY")
     price_id = _get_config("STRIPE_PRICE_ID_MONTHLY")
     frontend_url = _get_config("FRONTEND_URL", "http://localhost:5173")
 
-    if not secret_key:
-        raise HTTPException(status_code=500, detail="支付服务未配置，请设置 STRIPE_SECRET_KEY")
-    if not price_id:
-        raise HTTPException(status_code=500, detail="套餐价格未配置，请设置 STRIPE_PRICE_ID_MONTHLY")
+    # 未配置真实 Stripe 凭证：给出明确指引，避免抛出难懂的 API Key 错误
+    if _is_placeholder(secret_key) or _is_placeholder(price_id):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "支付功能尚未配置。请在 backend/.env 中填写真实的 "
+                "STRIPE_SECRET_KEY 与 STRIPE_PRICE_ID_MONTHLY；"
+                "若只是本地测试、不需要支付，请在 .env 中设置 "
+                "PAYMENT_DISABLED=true 后重启后端。"
+            ),
+        )
 
     plan = PLANS.get(req.plan_type)
     if not plan:
