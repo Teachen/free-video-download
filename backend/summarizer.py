@@ -152,15 +152,15 @@ class SubtitleExtractor:
         return m.group(1) if m else None
 
     def _get_video_info(self, url: str) -> dict:
-        ydl_opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-            "extract_flat": False,
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            "skip_download": True,
-        }
+        from downloader import build_ydl_opts
+
+        ydl_opts = build_ydl_opts(
+            url,
+            extract_flat=False,
+            writesubtitles=True,
+            writeautomaticsub=True,
+            skip_download=True,
+        )
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
         if not info:
@@ -210,18 +210,18 @@ class SubtitleExtractor:
 
     def _download_and_parse(self, url: str, lang: str, sub_type: str) -> list[dict]:
         """通过 yt-dlp 下载字幕文件并解析为分段列表"""
+        from downloader import build_ydl_opts
+
         with tempfile.TemporaryDirectory() as tmp_dir:
-            ydl_opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "noplaylist": True,
-                "skip_download": True,
-                "writesubtitles": sub_type == "manual",
-                "writeautomaticsub": sub_type == "auto",
-                "subtitleslangs": [lang],
-                "subtitlesformat": "vtt",
-                "outtmpl": os.path.join(tmp_dir, "subtitle"),
-            }
+            ydl_opts = build_ydl_opts(
+                url,
+                skip_download=True,
+                writesubtitles=sub_type == "manual",
+                writeautomaticsub=sub_type == "auto",
+                subtitleslangs=[lang],
+                subtitlesformat="vtt",
+                outtmpl=os.path.join(tmp_dir, "subtitle"),
+            )
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
 

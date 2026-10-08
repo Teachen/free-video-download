@@ -4,6 +4,25 @@ import shutil
 import yt_dlp
 from typing import Optional
 
+try:
+    from yt_dlp.networking.impersonate import ImpersonateTarget
+except ImportError:  # 兼容旧版 yt-dlp
+    ImpersonateTarget = None
+
+# 浏览器 UA，用于规避视频网站的防盗链 / 风控校验
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/131.0.0.0 Safari/537.36"
+)
+
+# 各平台的 Referer，防盗链校验的关键字段
+_REFERER_MAP = {
+    "bilibili": "https://www.bilibili.com/",
+    "youtube": "https://www.youtube.com/",
+    "douyin": "https://www.douyin.com/",
+}
+
 
 def _find_ffmpeg_path() -> Optional[str]:
     """查找 ffmpeg 可执行文件路径"""
@@ -15,6 +34,82 @@ def _find_ffmpeg_path() -> Optional[str]:
         return os.path.dirname(paths[0])
     except Exception:
         return None
+
+
+def _has_impersonate() -> bool:
+    """检测是否可用的 TLS 指纹伪装能力（需要新版 yt-dlp + curl_cffi）"""
+    if ImpersonateTarget is None:
+        return False
+    try:
+        import curl_cffi  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+# 需要 TLS 指纹伪装才能绕过风控的平台（普通请求头无效）
+_IMPERSONATE_TARGET = "chrome"
+
+# B 站登录态凭证文件（Netscape 格式 cookies.txt），存在时自动加载
+_BILIBILI_COOKIE_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
+
+# 需要登录态才能获取视频流的平台
+_LOGIN_REQUIRED_PLATFORMS = ("bilibili", "douyin")
+
+
+def _resolve_cookiefile(url: str) -> Optional[str]:
+    """查找适用于该 URL 的 Cookie 文件。
+
+    B 站等平台对未登录用户的请求会返回 412 或 "No video formats found"，
+    若项目目录下存在 cookies.txt 则自动使用。
+    """
+    if os.path.exists(_BILIBILI_COOKIE_FILE):
+        return _BILIBILI_COOKIE_FILE
+    return None
+
+
+def build_ydl_opts(url: str = "", **overrides) -> dict:
+    """构建带防盗链规避能力的 yt-dlp 配置。
+
+    视频网站（尤其 B 站）存在多重风控，逐层绕过：
+    1. 校验 Referer / 浏览器 UA —— 通过 http_headers 注入
+    2. 校验 TLS/JA3 指纹 —— 需 curl_cffi 做 impersonate 伪装（普通请求头无效）
+    3. 校验登录态 —— 需 cookies.txt，否则返回 412 / No video formats found
+
+    统一在这里注入，避免各调用点重复配置。
+    """
+    url_lower = url.lower()
+    headers = {
+        "User-Agent": _BROWSER_UA,
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+
+    for key, referer in _REFERER_MAP.items():
+        if key in url_lower:
+            headers["Referer"] = referer
+            break
+    else:
+        headers["Referer"] = url or "https://www.bilibili.com/"
+
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "http_headers": headers,
+    }
+
+    # 关键 1：TLS 指纹伪装，破解风控拦截（412 Precondition Failed）
+    if _has_impersonate():
+        opts["impersonate"] = ImpersonateTarget(_IMPERSONATE_TARGET)
+
+    # 关键 2：登录态 Cookie，破解 "No video formats found"
+    if any(p in url_lower for p in _LOGIN_REQUIRED_PLATFORMS):
+        cookie_file = _resolve_cookiefile(url)
+        if cookie_file:
+            opts["cookiefile"] = cookie_file
+
+    opts.update(overrides)
+    return opts
 
 
 class VideoDownloader:
@@ -53,12 +148,7 @@ class VideoDownloader:
 
     def parse_video(self, url: str) -> dict:
         """解析视频信息，不下载文件"""
-        ydl_opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "extract_flat": False,
-            "noplaylist": True,
-        }
+        ydl_opts = build_ydl_opts(url, extract_flat=False)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
@@ -135,12 +225,23 @@ class VideoDownloader:
 
         results.sort(key=lambda x: x["height"], reverse=True)
 
+        # 若平台只提供「音视频分离」的流（如 B 站），追加一个合并选项。
+        # 注意：合并需要 ffmpeg；无 ffmpeg 时使用 yt-dlp 选择器兜底语法，
+        # 保证在缺少 ffmpeg 的机器上也能下载到「带音频的单文件」。
         if not any(r["has_audio"] for r in results) and results:
             best_video = results[0]
+            if self.has_ffmpeg:
+                merged_id = "bestvideo+bestaudio/best"
+                merged_label = f"{best_video['height']}p 最佳 (视频+音频合并)"
+            else:
+                merged_id = (
+                    "bestvideo+bestaudio/best[acodec!=none]/best"
+                )
+                merged_label = f"{best_video['height']}p 最佳 (无法合并，自动降级)"
             merged = {
                 **best_video,
-                "format_id": f"bestvideo+bestaudio/best",
-                "label": f"{best_video['height']}p 最佳 (视频+音频合并)",
+                "format_id": merged_id,
+                "label": merged_label,
                 "has_audio": True,
                 "acodec": "merged",
             }
@@ -148,22 +249,50 @@ class VideoDownloader:
 
         return results[:15]
 
+    @staticmethod
+    def _fallback_format(format_id: str) -> str:
+        """无 ffmpeg 时，把「需要合并」的 format_id 降级为「含音频的单文件」格式。
+
+        原实现直接改写为 "best"：
+          - 部分平台（B 站）没有 best 单文件 → Requested format is not available
+        简单加 "/best[acodec!=none]" 也会失败：
+          - B 站根本不提供带音频的单文件流，选择器仍会选中分离流 → 报错要求 ffmpeg
+
+        正确做法：显式要求「同时含音视频的单文件」（带 + 号即分离流，必须先排除），
+        用 acodec!=none & vcodec!=none 双重约束，再兜底到任意可用格式。
+        """
+        # 单文件约束：视频和音频同在一个文件里
+        single_file = "best[vcodec!=none][acodec!=none]"
+
+        if "+" not in format_id:
+            return f"{format_id}/{single_file}/best"
+
+        # 有 "+" 说明是分离流组合，取视频部分并按画质偏好选择单文件
+        video_part = format_id.split("+")[0]
+        height = None
+        if video_part.isdigit():
+            # 形如 30080，无法从 id 推画质，退回到「最佳单文件」
+            return f"{single_file}/best"
+
+        # 形如 bestvideo / worstvideo 等选择器
+        return f"{format_id}/{single_file}/best"
+
     def download_video(self, url: str, format_id: str) -> dict:
         """下载视频到服务器临时目录，返回文件路径和元数据"""
-        if not self.has_ffmpeg and "+" in format_id:
-            format_id = "best"
+        if not self.has_ffmpeg and ("+" in format_id or "bestvideo" in format_id):
+            format_id = self._fallback_format(format_id)
 
-        ydl_opts = {
-            "format": format_id,
-            "outtmpl": os.path.join(self.DOWNLOAD_DIR, "%(title)s.%(ext)s"),
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-        }
-
+        ydl_opts = build_ydl_opts(
+            url,
+            format=format_id,
+            outtmpl=os.path.join(self.DOWNLOAD_DIR, "%(title)s.%(ext)s"),
+        )
+        # 无 ffmpeg 时禁止合并，否则 yt-dlp 会尝试调用不存在的 ffmpeg
         if self.has_ffmpeg:
             ydl_opts["ffmpeg_location"] = self.ffmpeg_path
             ydl_opts["merge_output_format"] = "mp4"
+        else:
+            ydl_opts["format_sort"] = ["res", "ext:mp4:m4a"]
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -197,12 +326,7 @@ class VideoDownloader:
 
     def get_direct_url(self, url: str, format_id: str) -> dict:
         """获取视频直链"""
-        ydl_opts = {
-            "format": format_id,
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-        }
+        ydl_opts = build_ydl_opts(url, format=format_id)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)

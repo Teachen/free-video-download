@@ -1,6 +1,15 @@
 fastapi>=0.135.0
 uvicorn>=0.34.0
-yt-dlp>=2026.1.0
+
+# yt-dlp 含 curl-cffi 才能做 TLS 指纹伪装，破解 B 站 412 风控
+# 安装命令：pip install -U "yt-dlp[default,curl-cffi]"
+yt-dlp[default,curl-cffi]>=2026.8.19
+curl-cffi>=0.16.0
+browser_cookie3>=0.20.0
+
+# ffmpeg 用于音视频合并（高清视频下载必需），自动下载静态二进制
+static-ffmpeg>=3.0
+
 python-multipart>=0.0.18
 httpx>=0.28.0
 openai>=1.0.0
