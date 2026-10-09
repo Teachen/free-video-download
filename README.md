@@ -38,10 +38,10 @@
 
 ## 二、更多介绍
 
-功能模块：
+页面效果
+<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/c68ecc90-d0cd-4c95-8dbd-f381caac1c1d" />
+<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/74ef59de-217c-4f29-ac76-82a96f7db753" />
+<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/7f797493-a380-41cf-8bbb-8c8eb42d147c" />
 
-![功能模块图](https://pic.yupi.icu/1/image-20260323163948750.png)
 
-架构设计：
 
-![架构设计图](https://pic.yupi.icu/1/image-20260323163917381.png)
