@@ -4,8 +4,10 @@
 
 这是一套以 **AI 编程实战** 为核心的项目教程，基于 Vue 3 + FastAPI + yt-dlp + DeepSeek + Stripe，用 AI 编程的方式从 0 到 1 开发一个《AI 万能视频下载总结器》
 
-![AI万能视频下载器主页](https://pic.yupi.icu/1/AI%E4%B8%87%E8%83%BD%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E5%99%A8%E4%B8%BB%E9%A1%B5.png)
-
+页面效果
+<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/c68ecc90-d0cd-4c95-8dbd-f381caac1c1d" />
+<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/74ef59de-217c-4f29-ac76-82a96f7db753" />
+<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/7f797493-a380-41cf-8bbb-8c8eb42d147c" />
 
 
 ### 为什么做这个项目？
@@ -14,7 +16,7 @@
 
 更进一步，如果能在下载前快速了解一个长视频的核心内容，比如看一个 2 小时的技术分享，先看到 AI 总结的大纲和要点，就能判断值不值得花时间看完整视频，大幅提升学习效率。
 
-这就是 AI 万能视频下载总结器的起点：输入一个视频链接，工具自动解析视频信息，支持从 B 站、YouTube、抖音等 **1800+** 平台下载视频，同时提供 **AI 视频总结**（摘要 + 思维导图 + 问答），还集成了 **用户认证** 和 **Stripe 国际支付** 能力，是一个真正能上线变现的产品。
+这就是 AI 万能视频下载总结器的起点：输入一个视频链接，工具自动解析视频信息，支持从 B 站、YouTube、抖音等 **1800+** 平台下载视频，同时提供 **AI 视频总结**（摘要 + 思维导图 + 问答），还集成了 **用户认证** 能力，是一个真正能上线变现的产品。
 
 **一个链接搞定视频下载 + AI 总结，学习效率翻倍！**
 
@@ -34,14 +36,4 @@
 
 支持邮箱 + 密码注册登录，基于 JWT 实现无状态认证。免费用户每天可使用 3 次 AI 总结，VIP 会员不限次数。
 
-7）Stripe 国际支付：集成 Stripe 国际支付平台，支持信用卡等多种支付方式，用户可一键开通 VIP 会员，解锁无限 AI 总结次数。
-
 ## 二、更多介绍
-
-页面效果
-<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/c68ecc90-d0cd-4c95-8dbd-f381caac1c1d" />
-<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/74ef59de-217c-4f29-ac76-82a96f7db753" />
-<img width="2550" height="1259" alt="image" src="https://github.com/user-attachments/assets/7f797493-a380-41cf-8bbb-8c8eb42d147c" />
-
-
-
