@@ -34,6 +34,20 @@ OUTPUT_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cooki
 CRITICAL_FIELDS = ("SESSDATA", "bili_jct", "DedeUserID")
 
 
+def build_cookie_line(cookies) -> str:
+    """拼出可直接粘贴到微信云托管控制台的单行 BILI_COOKIE 值。
+
+    形如：SESSDATA=xxx; bili_jct=yyy; DedeUserID=123
+    """
+    values = {}
+    for c in cookies:
+        name = getattr(c, "name", "")
+        if name in CRITICAL_FIELDS:
+            values[name] = getattr(c, "value", "")
+    parts = [f"{k}={values[k]}" for k in CRITICAL_FIELDS if values.get(k)]
+    return "; ".join(parts)
+
+
 # --------------------------------------------------------------------------- #
 # 权限与依赖检查
 # --------------------------------------------------------------------------- #
@@ -327,10 +341,19 @@ def export(browser: str, out_path: str, profile: str | None = None) -> int:
     count = write_netscape(cookies, out_path)
     print(f"[成功] 从 {used} 导出 {count} 条 Cookie")
     print(f"       文件：{out_path}")
-    if not missing:
-        print("\n下一步：重启后端服务即可生效。")
+    if missing:
+        print("\n注意：登录字段不全，解析可能仍失败。建议按上方提示先登录 B 站再导出。")
         return 0
-    print("\n注意：登录字段不全，解析可能仍失败。建议按上方提示先登录 B 站再导出。")
+
+    print()
+    print("=" * 66)
+    print("本地使用：cookies.txt 已生成，重启后端服务即可生效。")
+    print()
+    print("【线上微信云托管】把下面这一整行复制到控制台 BILI_COOKIE 变量值：")
+    print()
+    print(build_cookie_line(cookies))
+    print()
+    print("=" * 66)
     return 0
 
 

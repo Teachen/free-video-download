@@ -29,6 +29,16 @@ from ctypes import wintypes
 OUTPUT_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
 CRITICAL_FIELDS = ("SESSDATA", "bili_jct", "DedeUserID")
 
+
+def build_cookie_line(values: dict) -> str:
+    """拼出可直接粘贴到微信云托管控制台的单行 BILI_COOKIE 值。
+
+    形如：SESSDATA=xxx; bili_jct=yyy; DedeUserID=123
+    只取登录必需的三个字段，避免整串过长。
+    """
+    parts = [f"{k}={values[k]}" for k in CRITICAL_FIELDS if values.get(k)]
+    return "; ".join(parts)
+
 BROWSERS = {
     "chrome": r"%LOCALAPPDATA%\Google\Chrome\User Data",
     "edge": r"%LOCALAPPDATA%\Microsoft\Edge\User Data",
@@ -258,7 +268,17 @@ def extract(browser: str, out_path: str) -> int:
     if missing:
         print(f"[警告] 缺少 {missing}，可能未登录 B 站或这些字段解密失败。")
         return 1
-    print("\n✅ 导出成功！重启后端服务即可生效。")
+
+    print("\n✅ 导出成功！")
+    print()
+    print("=" * 66)
+    print("本地使用：cookies.txt 已生成，重启后端服务即可生效。")
+    print()
+    print("【线上微信云托管】把下面这一整行复制到控制台 BILI_COOKIE 变量值：")
+    print()
+    print(build_cookie_line(got))
+    print()
+    print("=" * 66)
     return 0
 
 
