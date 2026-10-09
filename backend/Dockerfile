@@ -1,38 +1,39 @@
-# 后端服务镜像
-# 构建：docker build -t saveany-backend ./backend
-# 说明：yt-dlp 需要 ffmpeg 合并音视频；curl_cffi 用于 TLS 指纹伪装
+# 后端镜像 —— 微信云托管
+#
+# 构建上下文 = backend/ 目录（微信云托管「代码目录」设为 backend）
+# 本地验证：
+#   cd backend && docker build -t saveany-backend . && docker run -p 80:80 saveany-backend
+#
+# 说明：
+#   - ffmpeg：yt-dlp 合并音视频流必需（高清下载）
+#   - curl_cffi：TLS 指纹伪装，破解 B 站 412 风控
+#   - 监听端口 80：与 container.config.json 的 containerPort 一致
 
 FROM python:3.12-slim
 
-# ffmpeg：音视频合并必需
-# curl-cffi 依赖 libcurl/证书，slim 镜像需补齐 ca-certificates
+# ffmpeg 合并音视频；ca-certificates 供 curl_cffi / HTTPS 使用
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         ca-certificates \
-        curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 先装依赖，利用 Docker 层缓存
+# 先装依赖，利用镜像层缓存
 COPY requirements.txt .
 RUN pip install --no-cache-dir -U pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# 再拷代码
+# 再拷贝代码
 COPY . .
 
-# 运行时数据目录（可挂载卷持久化）
+# 运行时目录（云托管容器为临时文件系统，数据库请用内置 MySQL）
 RUN mkdir -p /app/downloads /app/data /app/logs
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PORT=80
 
-EXPOSE 8000
-
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8000/api/health || exit 1
+EXPOSE 80
 
 CMD ["python", "main.py"]

@@ -29,9 +29,11 @@ backend/logs/
 *.part
 *.log
 
-# 环境变量
+# 环境变量（含真实密钥，严禁提交）
 .env
 .env.local
+.env.prod
+.env.deploy
 
 # Cookie 凭证（含账号登录态，严禁提交）
 cookies.txt
@@ -51,8 +53,3 @@ backend/test_*.py
 
 # 前端构建产物压缩包
 frontend/dist.zip
-
-# 线上部署环境变量（含真实密钥，严禁提交）
-# 注意：只忽略根目录的 .env.deploy，不影响 deploy/.env.deploy.example 模板
-/.env.deploy
-/.env.deploy.local

@@ -4,12 +4,12 @@
 
 # Shell 脚本必须保持 LF，否则 Linux 上执行报 "bad interpreter: /bin/bash^M"
 *.sh text eol=lf
-deploy.sh text eol=lf
 
-# 服务配置与容器文件用 LF
-*.service text eol=lf
-*.conf text eol=lf
+# 容器与配置文件用 LF
 Dockerfile text eol=lf
+*.conf text eol=lf
+*.template text eol=lf
+*.json text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 

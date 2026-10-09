@@ -1,0 +1,18 @@
+{
+  "containerPort": 80,
+  "dockerfilePath": "Dockerfile",
+  "buildDir": "",
+  "minNum": 0,
+  "maxNum": 5,
+  "cpu": 0.5,
+  "mem": 1,
+  "policyType": "cpu",
+  "policyThreshold": 80,
+  "envParams": {
+    "TZ": "Asia/Shanghai",
+    "PORT": "80",
+    "PAYMENT_DISABLED": "true"
+  },
+  "customLogs": "stdout",
+  "initialDelaySeconds": 10
+}

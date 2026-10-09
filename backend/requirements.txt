@@ -20,3 +20,6 @@ bcrypt>=4.0.0
 PyJWT>=2.8.0
 stripe>=8.0.0
 python-dateutil>=2.8.0
+
+# 线上数据库（微信云托管内置 MySQL）；本地开发仍用标准库 sqlite3
+PyMySQL>=1.1.0

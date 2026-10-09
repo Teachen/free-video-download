@@ -1,0 +1,53 @@
+# Nginx 配置模板（微信云托管前端服务）
+#
+# 容器启动时，nginx 官方镜像会自动把本文件从 /etc/nginx/templates/
+# 渲染到 /etc/nginx/conf.d/default.conf，并把 ${BACKEND_URL} 替换为环境变量值。
+# 详见 Dockerfile 中的 NGINX_ENVSUBST_FILTER=BACKEND_URL
+
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # 视频文件较大
+    client_max_body_size 200m;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # ---------- SPA 路由：刷新子路径不再 404 ----------
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # ---------- 静态资源长效缓存 ----------
+    location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # ---------- 后端 API 反向代理（同源，规避 CORS）----------
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $proxy_host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # SSE 流式输出（AI 总结必需）：关闭缓冲，否则前端收不到实时流
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Connection "";
+        chunked_transfer_encoding on;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout    600s;
+        proxy_read_timeout    600s;
+    }
+}
